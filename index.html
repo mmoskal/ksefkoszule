@@ -1,0 +1,1524 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Faktura HTML do XML</title>
+  <style>
+    :root {
+      --bg: #f5efe3;
+      --panel: rgba(255, 251, 244, 0.96);
+      --panel-strong: #fffdf8;
+      --ink: #251c15;
+      --muted: #786658;
+      --line: rgba(37, 28, 21, 0.14);
+      --accent: #0f766e;
+      --accent-soft: rgba(15, 118, 110, 0.12);
+      --danger: #b42318;
+      --shadow: 0 20px 55px rgba(79, 60, 40, 0.12);
+      --radius: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 15px/1.45 "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.85), transparent 38%),
+        radial-gradient(circle at bottom right, rgba(15, 118, 110, 0.12), transparent 28%),
+        linear-gradient(140deg, #efe7d8 0%, #f7f2e8 40%, #ebe0cf 100%);
+      padding: 32px 18px 64px;
+    }
+
+    .shell {
+      max-width: 1160px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .hero {
+      padding: 28px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      margin-bottom: 10px;
+    }
+
+    .hero p,
+    .subtle {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .dropzone {
+      border: 2px dashed rgba(15, 118, 110, 0.35);
+      border-radius: 18px;
+      padding: 28px 18px;
+      text-align: center;
+      background:
+        linear-gradient(180deg, rgba(15, 118, 110, 0.06), rgba(15, 118, 110, 0.02)),
+        var(--panel-strong);
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+      cursor: pointer;
+    }
+
+    .dropzone.active {
+      transform: translateY(-1px) scale(1.01);
+      border-color: var(--accent);
+      background:
+        linear-gradient(180deg, rgba(15, 118, 110, 0.12), rgba(15, 118, 110, 0.04)),
+        var(--panel-strong);
+    }
+
+    .dropzone strong {
+      display: block;
+      font-size: 1.05rem;
+      margin-bottom: 6px;
+    }
+
+    .dropzone input {
+      display: none;
+    }
+
+    .actions,
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .actions {
+      margin-top: 16px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease, background 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .secondary {
+      background: rgba(37, 28, 21, 0.08);
+      color: var(--ink);
+    }
+
+    .ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .file-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .file-card {
+      padding: 14px 15px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.65);
+      display: grid;
+      gap: 6px;
+    }
+
+    .file-head,
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .badge {
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(37, 28, 21, 0.08);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .badge.ok {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .badge.error {
+      background: rgba(180, 35, 24, 0.12);
+      color: var(--danger);
+    }
+
+    .result-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .result-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.62);
+      overflow: hidden;
+    }
+
+    .result-body {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .warn-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    .warn-list li + li {
+      margin-top: 4px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      border-radius: 14px;
+      background: #201914;
+      color: #f7f2eb;
+      overflow: auto;
+      max-height: 340px;
+      font: 12px/1.45 "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    .empty {
+      padding: 26px;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.42);
+      text-align: center;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.95em;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <h1>Faktura HTML do XML</h1>
+      <p>Upuść jeden lub kilka plików HTML z wygenerowaną fakturą. Strona działa bezpośrednio z <code>file://</code>, parsuje sztywny układ faktury z Twojej aplikacji .NET i pobiera XML z powrotem do przeglądarki. Gdy wczytasz kilka plików, wynik może zostać pobrany jako ZIP.</p>
+    </section>
+
+    <section class="layout">
+      <aside class="stack">
+        <section class="panel">
+          <div class="dropzone" id="dropzone">
+            <input id="fileInput" type="file" accept=".html,.htm,text/html" multiple>
+            <strong>Upuść tutaj pliki HTML faktur</strong>
+            <div class="subtle">albo kliknij i wybierz pliki z dysku</div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" id="generateBtn" disabled>Generuj XML</button>
+            <button class="secondary" id="downloadBtn" disabled>Pobierz</button>
+            <button class="ghost" id="clearBtn" disabled>Wyczyść</button>
+          </div>
+
+          <div class="meta" style="margin-top: 16px;">
+            <span class="badge" id="fileCount">0 plików</span>
+            <span class="badge" id="resultCount">0 gotowych XML</span>
+          </div>
+
+          <div class="file-list" id="fileList"></div>
+        </section>
+
+        <section class="panel">
+          <h2 style="margin-bottom: 10px;">Zakres</h2>
+          <p class="subtle">Ten konwerter celowo obsługuje tylko sztywny układ HTML generowany przez obecną aplikację: nagłówek faktury, boksy nabywcy i sprzedawcy, jedną tabelę pozycji, akapit płatności, akapit uwag i końcowy akapit notatek. Parser sprawdza zgodność struktury, sum i kursu waluty z NBP. Jeśli coś się nie zgadza, XML nie będzie dostępny do pobrania.</p>
+        </section>
+      </aside>
+
+      <section class="panel">
+        <div class="result-head" style="margin-bottom: 14px;">
+          <h2>Wyniki</h2>
+          <span class="badge" id="statusBadge">Oczekiwanie na pliki</span>
+        </div>
+        <div class="result-grid" id="results">
+          <div class="empty">Nie wczytano jeszcze żadnych plików.</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const FakturaTool = (() => {
+      const encoder = new TextEncoder();
+      const nbpRateCache = new Map();
+      const EXPECTED_TABLE_HEADERS = [
+        "Lp.",
+        "Nazwa towaru lub usługi",
+        "PKWiU",
+        "Ilość",
+        "Jedn.",
+        "Cena netto EUR",
+        "Wart. netto EUR",
+        "VAT %",
+        "VAT EUR",
+        "Brutto EUR"
+      ];
+
+      function decodeHtmlEntities(value) {
+        return value
+          .replace(/&nbsp;/gi, " ")
+          .replace(/&amp;/gi, "&")
+          .replace(/&lt;/gi, "<")
+          .replace(/&gt;/gi, ">")
+          .replace(/&quot;/gi, "\"")
+          .replace(/&#39;/gi, "'");
+      }
+
+      function stripTags(value) {
+        return decodeHtmlEntities(value.replace(/<[^>]+>/g, " "));
+      }
+
+      function normalizeWhitespace(value) {
+        return value.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+      }
+
+      function htmlBlockToLines(html) {
+        const text = stripTags(html.replace(/<br\s*\/?>/gi, "\n"));
+        return normalizeWhitespace(text)
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      function extractAll(regex, input) {
+        const matches = [];
+        let match;
+        while ((match = regex.exec(input)) !== null) {
+          matches.push(match);
+        }
+        return matches;
+      }
+
+      function extractFirst(regex, input, label, errors) {
+        const match = regex.exec(input);
+        if (!match) {
+          errors.push("Brak pola: " + label + ".");
+          return "";
+        }
+        return match[1].trim();
+      }
+
+      function extractPartyBoxes(html, warnings, errors) {
+        const boxes = {};
+        const boxMatches = extractAll(/<div class=['"]box['"][^>]*><b>(Nabywca|Sprzedawca):<\/b><br\s*\/?>([\s\S]*?)<\/div>/gi, html);
+        for (const match of boxMatches) {
+          const role = match[1].toLowerCase();
+          const lines = htmlBlockToLines(match[2]);
+          const taxLine = lines.find((line) => /^NIP:/i.test(line)) || "";
+          const taxId = taxLine.replace(/^NIP:\s*/i, "").trim();
+          const cleanLines = lines.filter((line) => !/^NIP:/i.test(line));
+          boxes[role] = {
+            name: cleanLines[0] || "",
+            addressLines: cleanLines.slice(1),
+            taxId: taxId
+          };
+        }
+        if (!boxes.nabywca) {
+          errors.push("Brak sekcji nabywcy.");
+        }
+        if (!boxes.sprzedawca) {
+          errors.push("Brak sekcji sprzedawcy.");
+        }
+        return {
+          buyer: boxes.nabywca || { name: "", addressLines: [], taxId: "" },
+          seller: boxes.sprzedawca || { name: "", addressLines: [], taxId: "" }
+        };
+      }
+
+      function parseNumber(value) {
+        const cleaned = String(value || "").replace(/\s/g, "").replace(",", ".");
+        if (!cleaned) {
+          return null;
+        }
+        const number = Number(cleaned);
+        return Number.isFinite(number) ? number : null;
+      }
+
+      function toIsoDate(value) {
+        return /^\d{4}\.\d{2}\.\d{2}$/.test(value) ? value.replace(/\./g, "-") : value;
+      }
+
+      function polishDateToIso(value) {
+        const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(value || "").trim());
+        return match ? [match[3], match[2], match[1]].join("-") : String(value || "").trim();
+      }
+
+      function inferCurrency(html) {
+        const match = /Cena netto\s+([A-Z]{3})/i.exec(html);
+        return match ? match[1].toUpperCase() : "EUR";
+      }
+
+      function parseSummaryNumberRow(cells) {
+        return cells.map((cell) => parseNumber(cell)).filter((value) => value !== null);
+      }
+
+      function nearlyEqual(left, right) {
+        return Math.abs((left || 0) - (right || 0)) < 0.005;
+      }
+
+      function parseItems(tableHtml, currency, warnings, errors) {
+        const rows = extractAll(/<tr>([\s\S]*?)<\/tr>/gi, tableHtml);
+        const items = [];
+        let sawHeader = false;
+        let totalRow = null;
+        let breakdownRow = null;
+        for (const rowMatch of rows) {
+          const cells = extractAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi, rowMatch[1]).map((cell) => normalizeWhitespace(stripTags(cell[1].replace(/<br\s*\/?>/gi, "\n"))));
+          if (!cells.length) {
+            continue;
+          }
+          if (cells[0] === "Lp.") {
+            sawHeader = true;
+            const header = cells.slice(0, EXPECTED_TABLE_HEADERS.length);
+            if (header.length !== EXPECTED_TABLE_HEADERS.length || header.some((value, index) => value !== EXPECTED_TABLE_HEADERS[index])) {
+              errors.push("Nagłówek tabeli pozycji nie zgadza się z oczekiwanym układem faktury.");
+            }
+            continue;
+          }
+          const lineNo = cells[0];
+          if (!/^\d+$/.test(lineNo)) {
+            if (cells.includes("Razem:")) {
+              totalRow = parseSummaryNumberRow(cells);
+              continue;
+            }
+            if (cells.includes("W tym")) {
+              breakdownRow = parseSummaryNumberRow(cells);
+              continue;
+            }
+            errors.push("Znaleziono nieoczekiwany wiersz tabeli: " + cells.join(" | "));
+            continue;
+          }
+          if (cells.length < 10) {
+            errors.push("Wiersz " + lineNo + " nie ma kompletu 10 kolumn.");
+            continue;
+          }
+          const descriptionParts = cells[1]
+            .split("\n")
+            .map((part) => part.trim())
+            .filter(Boolean);
+          const quantity = parseNumber(cells[3]);
+          const unitNetAmount = parseNumber(cells[5]);
+          const netAmount = parseNumber(cells[6]);
+          const vatRate = parseNumber(cells[7]);
+          const vatAmount = parseNumber(cells[8]);
+          const grossAmount = parseNumber(cells[9]);
+          if (quantity === null || unitNetAmount === null || netAmount === null || vatRate === null || vatAmount === null || grossAmount === null) {
+            errors.push("Wiersz " + lineNo + " zawiera liczbę, której nie udało się odczytać.");
+          }
+          if (!descriptionParts.length) {
+            errors.push("Wiersz " + lineNo + " nie zawiera opisu pozycji.");
+          }
+          items.push({
+            lineNo: Number(lineNo),
+            description: descriptionParts[0] || "",
+            notes: descriptionParts.slice(1),
+            pkwiu: cells[2],
+            quantity: quantity,
+            unit: cells[4],
+            unitNetAmount: unitNetAmount,
+            netAmount: netAmount,
+            vatRate: vatRate,
+            vatAmount: vatAmount,
+            grossAmount: grossAmount,
+            currency: currency
+          });
+        }
+        if (!sawHeader) {
+          errors.push("Nie znaleziono poprawnego nagłówka tabeli pozycji.");
+        }
+        if (!items.length) {
+          errors.push("Nie znaleziono żadnych wierszy pozycji faktury.");
+        }
+        const computedNet = items.reduce((sum, item) => sum + (item.netAmount || 0), 0);
+        const computedVat = items.reduce((sum, item) => sum + (item.vatAmount || 0), 0);
+        const computedGross = items.reduce((sum, item) => sum + (item.grossAmount || 0), 0);
+        if (!totalRow || totalRow.length < 2) {
+          errors.push("Brak wiersza podsumowania „Razem”.");
+        } else {
+          const totalNet = totalRow[0];
+          const totalGross = totalRow[totalRow.length - 1];
+          if (!nearlyEqual(totalNet, computedNet)) {
+            errors.push("Suma netto w wierszu „Razem” nie zgadza się z pozycjami faktury.");
+          }
+          if (!nearlyEqual(totalGross, computedGross)) {
+            errors.push("Suma brutto w wierszu „Razem” nie zgadza się z pozycjami faktury.");
+          }
+        }
+        if (!breakdownRow || breakdownRow.length < 4) {
+          errors.push("Brak wiersza podsumowania „W tym”.");
+        } else {
+          if (!nearlyEqual(breakdownRow[0], computedNet)) {
+            errors.push("Wiersz „W tym” ma niezgodną wartość netto.");
+          }
+          if (!nearlyEqual(breakdownRow[1], computedVat)) {
+            errors.push("Wiersz „W tym” ma niezgodną wartość VAT.");
+          }
+          if (!nearlyEqual(breakdownRow[2], computedVat)) {
+            errors.push("Wiersz „W tym” ma niezgodną wartość VAT EUR.");
+          }
+          if (!nearlyEqual(breakdownRow[3], computedGross)) {
+            errors.push("Wiersz „W tym” ma niezgodną wartość brutto.");
+          }
+        }
+        return items;
+      }
+
+      function parseRemarks(html, warnings, errors) {
+        const remarksMatch = /<p>\s*Uwagi:<br\s*\/?>([\s\S]*?)<\/p>/i.exec(html);
+        if (!remarksMatch) {
+          errors.push("Brak akapitu z uwagami.");
+          return {
+            exchangeRateTable: "",
+            legalNotes: []
+          };
+        }
+        const lines = htmlBlockToLines(remarksMatch[1]);
+        const exchangeLine = lines.find((line) => /^Kurs średni wg tabeli kursów/i.test(line)) || "";
+        return {
+          exchangeRateTable: exchangeLine.replace(/^Kurs średni wg tabeli kursów\s*/i, "").trim(),
+          legalNotes: lines.filter((line) => line !== exchangeLine)
+        };
+      }
+
+      function parseExchangeRateReference(value) {
+        const raw = String(value || "").trim();
+        if (!raw) {
+          return null;
+        }
+        const patterns = [
+          /^(?<number>\d{1,3})\/(?<table>[A-Z])\/NBP z dnia (?<date>\d{2}\.\d{2}\.\d{4})$/,
+          /^(?<number>\d{1,3})\/(?<table>[A-Z])\/NBP\/(?<year>\d{4}) z dnia (?<date>\d{2}\.\d{2}\.\d{4})$/
+        ];
+        for (const pattern of patterns) {
+          const match = pattern.exec(raw);
+          if (match && match.groups) {
+            return {
+              raw: raw,
+              tableNumber: match.groups.number.padStart(3, "0"),
+              tableType: match.groups.table,
+              tableYear: match.groups.year || "",
+              effectiveDate: polishDateToIso(match.groups.date)
+            };
+          }
+        }
+        return null;
+      }
+
+      function parseAdditionalNotes(html) {
+        const paragraphMatches = extractAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/gi, html);
+        const notes = [];
+        for (const match of paragraphMatches) {
+          const raw = normalizeWhitespace(stripTags(match[1].replace(/<br\s*\/?>/gi, "\n")));
+          if (!raw) {
+            continue;
+          }
+          if (
+            /^Sposób zapłaty:/i.test(raw) ||
+            /^Uwagi:/i.test(raw) ||
+            /^Ziębice,\s*dnia/i.test(raw)
+          ) {
+            continue;
+          }
+          notes.push(raw);
+        }
+        return notes.slice(-1)[0] || "";
+      }
+
+      function parseInvoiceHtml(html, fileName) {
+        const warnings = [];
+        const errors = [];
+        const sourceHtml = String(html || "").replace(/^\uFEFF/, "");
+        const invoiceNumber = extractFirst(/<h1>\s*Faktura nr\s+([^<]+)<\/h1>/i, sourceHtml, "numer faktury", errors);
+        const documentVariant = extractFirst(/<h2>\s*([^<]+)\s*<\/h2>/i, sourceHtml, "wariant dokumentu", errors);
+        const partyBoxes = extractPartyBoxes(sourceHtml, warnings, errors);
+        const placeAndDateMatch = /<p[^>]*text-align:right[^>]*>\s*([^,<]+),\s*dnia\s*([0-9]{4}\.[0-9]{2}\.[0-9]{2})\s*<\/p>/i.exec(sourceHtml);
+        const issuePlace = placeAndDateMatch ? placeAndDateMatch[1].trim() : "";
+        const issueDate = placeAndDateMatch ? toIsoDate(placeAndDateMatch[2].trim()) : "";
+        if (!placeAndDateMatch) {
+          errors.push("Brak akapitu z miejscem i datą wystawienia.");
+        }
+        if (documentVariant && !/^(Oryginał|Kopia)$/i.test(documentVariant)) {
+          errors.push("Nieznany wariant dokumentu: " + documentVariant + ".");
+        }
+
+        const tableMatch = /<table class=['"]lista['"]>([\s\S]*?)<\/table>/i.exec(sourceHtml);
+        if (!tableMatch) {
+          errors.push("Brak tabeli faktury.");
+        }
+        const currency = inferCurrency(sourceHtml);
+        const items = tableMatch ? parseItems(tableMatch[1], currency, warnings, errors) : [];
+        const totals = items.reduce((acc, item) => {
+          acc.net += item.netAmount || 0;
+          acc.vat += item.vatAmount || 0;
+          acc.gross += item.grossAmount || 0;
+          return acc;
+        }, { net: 0, vat: 0, gross: 0 });
+
+        const paymentMatch = /Sposób zapłaty:\s*([^<]+)<br\s*\/?>Termin płatności:\s*([0-9]{4}\.[0-9]{2}\.[0-9]{2})<br\s*\/?>Waga:\s*([0-9]+(?:[.,][0-9]+)?)kg/i.exec(sourceHtml);
+        const paymentMethod = paymentMatch ? paymentMatch[1].trim() : "";
+        const paymentDueDate = paymentMatch ? toIsoDate(paymentMatch[2].trim()) : "";
+        const weightKg = paymentMatch ? parseNumber(paymentMatch[3]) : null;
+        if (!paymentMatch) {
+          errors.push("Brak akapitu z płatnością.");
+        }
+
+        const remarks = parseRemarks(sourceHtml, warnings, errors);
+        const additionalNotes = parseAdditionalNotes(sourceHtml);
+        const exchangeRateReference = parseExchangeRateReference(remarks.exchangeRateTable);
+
+        if (!partyBoxes.buyer.name) {
+          errors.push("Brak nazwy nabywcy.");
+        }
+        if (!partyBoxes.seller.name) {
+          errors.push("Brak nazwy sprzedawcy.");
+        }
+        if (!partyBoxes.buyer.taxId) {
+          errors.push("Brak identyfikatora podatkowego nabywcy.");
+        }
+        if (!partyBoxes.seller.taxId) {
+          errors.push("Brak identyfikatora podatkowego sprzedawcy.");
+        }
+        if ((currency || "PLN").toUpperCase() !== "PLN") {
+          if (!remarks.exchangeRateTable) {
+            errors.push("Dla faktury w walucie obcej brakuje wpisu „Kurs średni wg tabeli kursów …”.");
+          } else if (!exchangeRateReference) {
+            errors.push("Wpis kursu waluty ma nieobsługiwany format: " + remarks.exchangeRateTable + ".");
+          }
+        }
+
+        return {
+          fileName: fileName,
+          invoiceNumber: invoiceNumber,
+          documentVariant: documentVariant,
+          issuePlace: issuePlace,
+          issueDate: issueDate,
+          currency: currency,
+          buyer: partyBoxes.buyer,
+          seller: partyBoxes.seller,
+          paymentMethod: paymentMethod,
+          paymentDueDate: paymentDueDate,
+          weightKg: weightKg,
+          exchangeRateTable: remarks.exchangeRateTable,
+          exchangeRateReference: exchangeRateReference,
+          exchangeRate: null,
+          legalNotes: remarks.legalNotes,
+          additionalNotes: additionalNotes,
+          items: items,
+          totals: totals,
+          warnings: warnings,
+          errors: errors
+        };
+      }
+
+      function escapeXml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&apos;");
+      }
+
+      function decimalText(value, scale) {
+        return typeof value === "number" && Number.isFinite(value) ? value.toFixed(scale) : "";
+      }
+
+      function numberText(value) {
+        return decimalText(value, 2);
+      }
+
+      async function fetchNbpExchangeRate(reference, currency) {
+        const cacheKey = [reference.tableType, currency, reference.effectiveDate].join("|");
+        if (nbpRateCache.has(cacheKey)) {
+          return nbpRateCache.get(cacheKey);
+        }
+        const url = "https://api.nbp.pl/api/exchangerates/rates/" +
+          encodeURIComponent(reference.tableType) + "/" +
+          encodeURIComponent(currency) + "/" +
+          encodeURIComponent(reference.effectiveDate) + "/?format=json";
+        const response = await fetch(url, { method: "GET" });
+        if (!response.ok) {
+          throw new Error("NBP zwrócił " + response.status + " dla kursu " + currency + " z dnia " + reference.effectiveDate + ".");
+        }
+        const payload = await response.json();
+        const rate = payload && Array.isArray(payload.rates) ? payload.rates[0] : null;
+        if (!rate || typeof rate.mid !== "number") {
+          throw new Error("NBP nie zwrócił poprawnej wartości kursu dla " + currency + ".");
+        }
+        const tableNo = String(rate.no || "");
+        const tableMatch = /^(\d{1,3})\/([A-Z])\/NBP\/(\d{4})$/.exec(tableNo);
+        if (!tableMatch) {
+          throw new Error("NBP zwrócił nieoczekiwany numer tabeli: " + tableNo + ".");
+        }
+        if (tableMatch[1].padStart(3, "0") !== reference.tableNumber || tableMatch[2] !== reference.tableType) {
+          throw new Error("NBP zwrócił inną tabelę kursową niż wynika z faktury: " + tableNo + ".");
+        }
+        if (rate.effectiveDate !== reference.effectiveDate) {
+          throw new Error("NBP zwrócił inną datę kursu niż wynika z faktury: " + rate.effectiveDate + ".");
+        }
+        if (reference.tableYear && tableMatch[3] !== reference.tableYear) {
+          throw new Error("NBP zwrócił inny rok tabeli niż wpisany na fakturze: " + tableNo + ".");
+        }
+        const result = {
+          tableNo: tableNo,
+          effectiveDate: rate.effectiveDate,
+          currency: String(payload.code || currency).toUpperCase(),
+          mid: rate.mid
+        };
+        nbpRateCache.set(cacheKey, result);
+        return result;
+      }
+
+      async function enrichInvoice(invoice) {
+        const currency = (invoice.currency || "PLN").toUpperCase();
+        if (currency === "PLN") {
+          return invoice;
+        }
+        if (invoice.errors.length || !invoice.exchangeRateReference) {
+          return invoice;
+        }
+        try {
+          invoice.exchangeRate = await fetchNbpExchangeRate(invoice.exchangeRateReference, currency);
+        } catch (error) {
+          invoice.errors.push(error instanceof Error ? error.message : "Nie udało się pobrać kursu waluty z NBP.");
+        }
+        return invoice;
+      }
+
+      function addLine(parts, indent, tag, value, attrs) {
+        const attrText = attrs ? " " + attrs : "";
+        parts.push(" ".repeat(indent) + "<" + tag + attrText + ">" + escapeXml(value) + "</" + tag + ">");
+      }
+
+      function splitTaxId(value) {
+        const raw = String(value || "").trim().replace(/\s+/g, " ");
+        const compact = raw.replace(/\s+/g, "");
+        const prefixed = compact.match(/^([A-Z]{2})([A-Za-z0-9]+)$/);
+        if (prefixed) {
+          return {
+            prefix: prefixed[1],
+            value: prefixed[2]
+          };
+        }
+        return {
+          prefix: "",
+          value: compact
+        };
+      }
+
+      function inferCountryCodeFromText(value) {
+        const text = String(value || "").trim();
+        const mappings = {
+          "POLSKA": "PL",
+          "POLAND": "PL",
+          "CZECHY": "CZ",
+          "CZECH REPUBLIC": "CZ",
+          "CZECHIA": "CZ",
+          "NIEMCY": "DE",
+          "GERMANY": "DE"
+        };
+        if (mappings[text.toUpperCase()]) {
+          return mappings[text.toUpperCase()];
+        }
+        const direct = text.match(/\b([A-Z]{2})\b$/);
+        return direct ? direct[1] : "";
+      }
+
+      function normalizeAddress(party, fallbackCountryCode) {
+        const sourceLines = Array.isArray(party.addressLines) ? party.addressLines.slice() : [];
+        let countryCode = fallbackCountryCode || "";
+        if (sourceLines.length) {
+          const lastLine = sourceLines[sourceLines.length - 1];
+          const match = lastLine.match(/^(.*?)(?:,\s*([A-Za-zĄĆĘŁŃÓŚŹŻa-ząćęłńóśźż ]+|[A-Z]{2}))$/);
+          if (match) {
+            const inferred = inferCountryCodeFromText(match[2]);
+            if (inferred) {
+              countryCode = inferred;
+              sourceLines[sourceLines.length - 1] = match[1].trim();
+              if (!sourceLines[sourceLines.length - 1]) {
+                sourceLines.pop();
+              }
+            }
+          }
+        }
+        const cleanLines = sourceLines.filter(Boolean);
+        return {
+          countryCode: countryCode || "PL",
+          address1: cleanLines[0] || "",
+          address2: cleanLines.slice(1).join(", ")
+        };
+      }
+
+      function addAddress(parts, indent, tag, address) {
+        parts.push(" ".repeat(indent) + "<" + tag + ">");
+        addLine(parts, indent + 2, "KodKraju", address.countryCode || "PL");
+        addLine(parts, indent + 2, "AdresL1", address.address1 || "-");
+        if (address.address2) {
+          addLine(parts, indent + 2, "AdresL2", address.address2);
+        }
+        parts.push(" ".repeat(indent) + "</" + tag + ">");
+      }
+
+      function mapBuyerIdentity(invoice) {
+        const buyer = invoice.buyer || {};
+        const tax = splitTaxId(buyer.taxId);
+        const address = normalizeAddress(buyer, tax.prefix);
+        const result = {
+          name: buyer.name || "",
+          address: address,
+          kind: "BrakID",
+          countryCode: address.countryCode,
+          idValue: ""
+        };
+        if (/^\d{10}$/.test(tax.value) && (!tax.prefix || tax.prefix === "PL")) {
+          result.kind = "NIP";
+          result.idValue = tax.value;
+          result.countryCode = "PL";
+        } else if (tax.prefix && /^[A-Za-z0-9]{1,50}$/.test(tax.value)) {
+          result.kind = "VATUE";
+          result.countryCode = tax.prefix;
+          result.idValue = tax.value;
+        } else if (tax.value) {
+          result.kind = "ID";
+          result.idValue = tax.value;
+        }
+        return result;
+      }
+
+      function mapSellerIdentity(invoice) {
+        const seller = invoice.seller || {};
+        const tax = splitTaxId(seller.taxId);
+        return {
+          name: seller.name || "",
+          nip: tax.value.replace(/\D/g, ""),
+          address: normalizeAddress(seller, tax.prefix || "PL")
+        };
+      }
+
+      function hasReverseChargeNote(invoice) {
+        return (invoice.legalNotes || []).some((note) => /obowiązek podatkowy przechodzi|odwrotne obciążenie/i.test(note));
+      }
+
+      function mapItemVatCode(item, reverseCharge) {
+        if (item.vatRate === 23 || item.vatRate === 22 || item.vatRate === 8 || item.vatRate === 7 || item.vatRate === 5 || item.vatRate === 4 || item.vatRate === 3) {
+          return String(item.vatRate);
+        }
+        if (item.vatRate === 0) {
+          return "0 WDT";
+        }
+        return reverseCharge ? "np I" : "0 KR";
+      }
+
+      function summarizeInvoice(invoice) {
+        const reverseCharge = hasReverseChargeNote(invoice);
+        const totals = {
+          P_13_1: 0,
+          P_14_1: 0,
+          P_13_2: 0,
+          P_14_2: 0,
+          P_13_3: 0,
+          P_14_3: 0,
+          P_13_4: 0,
+          P_14_4: 0,
+          P_13_5: 0,
+          P_14_5: 0,
+          P_13_6_1: 0,
+          P_13_6_2: 0,
+          P_13_7: 0,
+          P_13_8: 0,
+          P_13_9: 0,
+          P_13_10: 0,
+          P_13_11: 0
+        };
+        invoice.items.forEach((item) => {
+          const rateCode = mapItemVatCode(item, reverseCharge);
+          if (rateCode === "23" || rateCode === "22") {
+            totals.P_13_1 += item.netAmount || 0;
+            totals.P_14_1 += item.vatAmount || 0;
+          } else if (rateCode === "8" || rateCode === "7") {
+            totals.P_13_2 += item.netAmount || 0;
+            totals.P_14_2 += item.vatAmount || 0;
+          } else if (rateCode === "5") {
+            totals.P_13_3 += item.netAmount || 0;
+            totals.P_14_3 += item.vatAmount || 0;
+          } else if (rateCode === "4") {
+            totals.P_13_4 += item.netAmount || 0;
+            totals.P_14_4 += item.vatAmount || 0;
+          } else if (rateCode === "0 WDT") {
+            totals.P_13_6_2 += item.netAmount || 0;
+          } else if (rateCode === "0 KR") {
+            totals.P_13_6_1 += item.netAmount || 0;
+          } else if (rateCode === "zw") {
+            totals.P_13_7 += item.netAmount || 0;
+          } else if (rateCode === "np II") {
+            totals.P_13_9 += item.netAmount || 0;
+          } else if (rateCode === "oo") {
+            totals.P_13_10 += item.netAmount || 0;
+          } else if (rateCode === "np I") {
+            totals.P_13_8 += item.netAmount || 0;
+          } else {
+            totals.P_13_8 += item.netAmount || 0;
+          }
+        });
+        return {
+          reverseCharge: reverseCharge,
+          totals: totals
+        };
+      }
+
+      function buildFa3InvoiceXml(invoice) {
+        const seller = mapSellerIdentity(invoice);
+        const buyer = mapBuyerIdentity(invoice);
+        const summary = summarizeInvoice(invoice);
+        const lines = [];
+        lines.push("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        lines.push("<Faktura xmlns=\"http://crd.gov.pl/wzor/2025/06/25/13775/\">");
+        lines.push("  <Naglowek>");
+        lines.push("    <KodFormularza kodSystemowy=\"FA (3)\" wersjaSchemy=\"1-0E\">FA</KodFormularza>");
+        lines.push("    <WariantFormularza>3</WariantFormularza>");
+        addLine(lines, 4, "DataWytworzeniaFa", new Date().toISOString().replace(/\.\d{3}Z$/, "Z"));
+        addLine(lines, 4, "SystemInfo", "Koszule HTML do FA(3)");
+        lines.push("  </Naglowek>");
+
+        lines.push("  <Podmiot1>");
+        lines.push("    <DaneIdentyfikacyjne>");
+        addLine(lines, 6, "NIP", seller.nip || "8871004956");
+        addLine(lines, 6, "Nazwa", seller.name || invoice.seller.name || "");
+        lines.push("    </DaneIdentyfikacyjne>");
+        addAddress(lines, 4, "Adres", seller.address);
+        lines.push("  </Podmiot1>");
+
+        lines.push("  <Podmiot2>");
+        lines.push("    <DaneIdentyfikacyjne>");
+        if (buyer.kind === "NIP") {
+          addLine(lines, 6, "NIP", buyer.idValue);
+        } else if (buyer.kind === "VATUE") {
+          addLine(lines, 6, "KodUE", buyer.countryCode);
+          addLine(lines, 6, "NrVatUE", buyer.idValue);
+        } else if (buyer.kind === "ID") {
+          if (buyer.countryCode) {
+            addLine(lines, 6, "KodKraju", buyer.countryCode);
+          }
+          addLine(lines, 6, "NrID", buyer.idValue);
+        } else {
+          addLine(lines, 6, "BrakID", "1");
+        }
+        if (buyer.name) {
+          addLine(lines, 6, "Nazwa", buyer.name);
+        }
+        lines.push("    </DaneIdentyfikacyjne>");
+        addAddress(lines, 4, "Adres", buyer.address);
+        addLine(lines, 4, "JST", "2");
+        addLine(lines, 4, "GV", "2");
+        lines.push("  </Podmiot2>");
+
+        lines.push("  <Fa>");
+        addLine(lines, 4, "KodWaluty", invoice.currency || "EUR");
+        addLine(lines, 4, "P_1", invoice.issueDate || "");
+        if (invoice.issuePlace) {
+          addLine(lines, 4, "P_1M", invoice.issuePlace);
+        }
+        addLine(lines, 4, "P_2", invoice.invoiceNumber || "");
+
+        Object.entries(summary.totals).forEach(([tag, value]) => {
+          if (Math.abs(value) > 0.000001) {
+            addLine(lines, 4, tag, numberText(value));
+          }
+        });
+        addLine(lines, 4, "P_15", numberText(invoice.totals.gross || 0));
+        if (invoice.exchangeRate && (invoice.currency || "PLN").toUpperCase() !== "PLN") {
+          addLine(lines, 4, "KursWalutyZ", decimalText(invoice.exchangeRate.mid, 6));
+        }
+
+        lines.push("    <Adnotacje>");
+        addLine(lines, 6, "P_16", "2");
+        addLine(lines, 6, "P_17", "2");
+        addLine(lines, 6, "P_18", summary.reverseCharge ? "1" : "2");
+        addLine(lines, 6, "P_18A", "2");
+        lines.push("      <Zwolnienie><P_19N>1</P_19N></Zwolnienie>");
+        lines.push("      <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>");
+        addLine(lines, 6, "P_23", "2");
+        lines.push("      <PMarzy><P_PMarzyN>1</P_PMarzyN></PMarzy>");
+        lines.push("    </Adnotacje>");
+
+        addLine(lines, 4, "RodzajFaktury", "VAT");
+
+        if (invoice.exchangeRateTable) {
+          lines.push("    <DodatkowyOpis>");
+          addLine(lines, 6, "Klucz", "KursTabeli");
+          addLine(lines, 6, "Wartosc", invoice.exchangeRateTable);
+          lines.push("    </DodatkowyOpis>");
+        }
+        if (invoice.additionalNotes) {
+          lines.push("    <DodatkowyOpis>");
+          addLine(lines, 6, "Klucz", "Notatki");
+          addLine(lines, 6, "Wartosc", invoice.additionalNotes);
+          lines.push("    </DodatkowyOpis>");
+        }
+        (invoice.legalNotes || []).forEach((note, index) => {
+          lines.push("    <DodatkowyOpis>");
+          addLine(lines, 6, "Klucz", "UwagaPrawna" + (index + 1));
+          addLine(lines, 6, "Wartosc", note);
+          lines.push("    </DodatkowyOpis>");
+        });
+
+        invoice.items.forEach((item) => {
+          lines.push("    <FaWiersz>");
+          addLine(lines, 6, "NrWierszaFa", item.lineNo);
+          if (item.description) {
+            addLine(lines, 6, "P_7", item.description);
+          }
+          if (item.pkwiu) {
+            addLine(lines, 6, "PKWiU", item.pkwiu);
+          }
+          if (item.unit) {
+            addLine(lines, 6, "P_8A", item.unit);
+          }
+          if (item.quantity != null) {
+            addLine(lines, 6, "P_8B", decimalText(item.quantity, 6));
+          }
+          if (item.unitNetAmount != null) {
+            addLine(lines, 6, "P_9A", decimalText(item.unitNetAmount, 8));
+          }
+          if (item.netAmount != null) {
+            addLine(lines, 6, "P_11", numberText(item.netAmount));
+          }
+          if (item.vatAmount != null && Math.abs(item.vatAmount) > 0.000001) {
+            addLine(lines, 6, "P_11Vat", numberText(item.vatAmount));
+          }
+          addLine(lines, 6, "P_12", mapItemVatCode(item, summary.reverseCharge));
+          if (invoice.exchangeRate && (invoice.currency || "PLN").toUpperCase() !== "PLN") {
+            addLine(lines, 6, "KursWaluty", decimalText(invoice.exchangeRate.mid, 6));
+          }
+          lines.push("    </FaWiersz>");
+        });
+
+        if (invoice.paymentDueDate || invoice.paymentMethod) {
+          lines.push("    <Platnosc>");
+          if (invoice.paymentDueDate) {
+            lines.push("      <TerminPlatnosci>");
+            addLine(lines, 8, "Termin", invoice.paymentDueDate);
+            lines.push("      </TerminPlatnosci>");
+          }
+          addLine(lines, 6, "FormaPlatnosci", /przelew/i.test(invoice.paymentMethod || "") ? "6" : "6");
+          lines.push("    </Platnosc>");
+        }
+
+        lines.push("  </Fa>");
+        lines.push("</Faktura>");
+        return lines.join("\n");
+      }
+
+      function buildInvoiceXml(invoice) {
+        return buildFa3InvoiceXml(invoice);
+      }
+
+      function sanitizeBaseName(fileName) {
+        return (fileName || "invoice")
+          .replace(/\.[^.]+$/, "")
+          .replace(/[^A-Za-z0-9._-]+/g, "_")
+          .replace(/^_+|_+$/g, "") || "invoice";
+      }
+
+      function crc32(bytes) {
+        let crc = -1;
+        for (let i = 0; i < bytes.length; i += 1) {
+          crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ bytes[i]) & 0xff];
+        }
+        return (crc ^ -1) >>> 0;
+      }
+
+      function makeDosDateTime(date) {
+        const safe = date instanceof Date ? date : new Date();
+        const year = Math.max(1980, safe.getFullYear());
+        const month = safe.getMonth() + 1;
+        const day = safe.getDate();
+        const hours = safe.getHours();
+        const minutes = safe.getMinutes();
+        const seconds = Math.floor(safe.getSeconds() / 2);
+        const dosTime = (hours << 11) | (minutes << 5) | seconds;
+        const dosDate = ((year - 1980) << 9) | (month << 5) | day;
+        return { dosDate, dosTime };
+      }
+
+      function pushU16(parts, value) {
+        parts.push(value & 0xff, (value >>> 8) & 0xff);
+      }
+
+      function pushU32(parts, value) {
+        parts.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff);
+      }
+
+      function concatArrays(chunks) {
+        const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+        const result = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          result.set(chunk, offset);
+          offset += chunk.length;
+        }
+        return result;
+      }
+
+      function createZipBytes(files) {
+        const localChunks = [];
+        const centralChunks = [];
+        let offset = 0;
+        const now = makeDosDateTime(new Date());
+
+        for (const file of files) {
+          const nameBytes = encoder.encode(file.name);
+          const dataBytes = encoder.encode(file.content);
+          const crc = crc32(dataBytes);
+
+          const local = [];
+          pushU32(local, 0x04034b50);
+          pushU16(local, 20);
+          pushU16(local, 0x0800);
+          pushU16(local, 0);
+          pushU16(local, now.dosTime);
+          pushU16(local, now.dosDate);
+          pushU32(local, crc);
+          pushU32(local, dataBytes.length);
+          pushU32(local, dataBytes.length);
+          pushU16(local, nameBytes.length);
+          pushU16(local, 0);
+          localChunks.push(Uint8Array.from(local), nameBytes, dataBytes);
+
+          const central = [];
+          pushU32(central, 0x02014b50);
+          pushU16(central, 20);
+          pushU16(central, 20);
+          pushU16(central, 0x0800);
+          pushU16(central, 0);
+          pushU16(central, now.dosTime);
+          pushU16(central, now.dosDate);
+          pushU32(central, crc);
+          pushU32(central, dataBytes.length);
+          pushU32(central, dataBytes.length);
+          pushU16(central, nameBytes.length);
+          pushU16(central, 0);
+          pushU16(central, 0);
+          pushU16(central, 0);
+          pushU16(central, 0);
+          pushU32(central, 0);
+          pushU32(central, offset);
+          centralChunks.push(Uint8Array.from(central), nameBytes);
+
+          offset += local.length + nameBytes.length + dataBytes.length;
+        }
+
+        const centralDirectory = concatArrays(centralChunks);
+        const end = [];
+        pushU32(end, 0x06054b50);
+        pushU16(end, 0);
+        pushU16(end, 0);
+        pushU16(end, files.length);
+        pushU16(end, files.length);
+        pushU32(end, centralDirectory.length);
+        pushU32(end, offset);
+        pushU16(end, 0);
+
+        return concatArrays([...localChunks, centralDirectory, Uint8Array.from(end)]);
+      }
+
+      function createDownloadName(results) {
+        if (results.length === 1) {
+          return sanitizeBaseName(results[0].source.name) + ".xml";
+        }
+        return "faktura-xml-" + new Date().toISOString().slice(0, 10) + ".zip";
+      }
+
+      const CRC_TABLE = (() => {
+        const table = new Uint32Array(256);
+        for (let n = 0; n < 256; n += 1) {
+          let c = n;
+          for (let k = 0; k < 8; k += 1) {
+            c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+          }
+          table[n] = c >>> 0;
+        }
+        return table;
+      })();
+
+      return {
+        parseInvoiceHtml,
+        enrichInvoice,
+        buildInvoiceXml,
+        sanitizeBaseName,
+        createZipBytes,
+        createDownloadName
+      };
+    })();
+
+    (() => {
+      const state = {
+        files: [],
+        results: []
+      };
+
+      const dropzone = document.getElementById("dropzone");
+      const fileInput = document.getElementById("fileInput");
+      const generateBtn = document.getElementById("generateBtn");
+      const downloadBtn = document.getElementById("downloadBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const fileList = document.getElementById("fileList");
+      const resultsEl = document.getElementById("results");
+      const fileCount = document.getElementById("fileCount");
+      const resultCount = document.getElementById("resultCount");
+      const statusBadge = document.getElementById("statusBadge");
+      let dragDepth = 0;
+
+      function setStatus(text, tone) {
+        statusBadge.textContent = text;
+        statusBadge.className = "badge" + (tone ? " " + tone : "");
+      }
+
+      function refreshFileCards() {
+        fileList.innerHTML = "";
+        if (!state.files.length) {
+          fileList.innerHTML = '<div class="empty">Nie wybrano żadnych plików.</div>';
+        } else {
+          state.files.forEach((file) => {
+            const card = document.createElement("div");
+            card.className = "file-card";
+            card.innerHTML =
+              '<div class="file-head"><strong>' + escapeHtml(file.name) + '</strong><span class="badge">' + formatSize(file.size) + '</span></div>' +
+              '<div class="subtle">Gotowy do parsowania w przeglądarce.</div>';
+            fileList.appendChild(card);
+          });
+        }
+        fileCount.textContent = state.files.length + " " + pluralize(state.files.length, "plik", "pliki", "plików");
+        generateBtn.disabled = !state.files.length;
+        clearBtn.disabled = !state.files.length;
+      }
+
+      function refreshResults() {
+        resultsEl.innerHTML = "";
+        const readyCount = state.results.filter((result) => !result.invoice.errors.length && result.xml).length;
+        const hasErrors = state.results.some((result) => result.invoice.errors.length);
+        if (!state.results.length) {
+          resultsEl.innerHTML = '<div class="empty">Nie wygenerowano jeszcze żadnego XML.</div>';
+        } else {
+          state.results.forEach((result, index) => {
+            const card = document.createElement("article");
+            card.className = "result-card";
+            const errorHtml = result.invoice.errors.length
+              ? '<ul class="warn-list" style="color: var(--danger);">' + result.invoice.errors.map((error) => '<li>' + escapeHtml(error) + '</li>').join("") + "</ul>"
+              : '<div class="subtle">Brak błędów krytycznych.</div>';
+            const warningHtml = result.invoice.warnings.length
+              ? '<ul class="warn-list">' + result.invoice.warnings.map((warning) => '<li>' + escapeHtml(warning) + '</li>').join("") + "</ul>"
+              : '<div class="subtle">Brak ostrzeżeń parsera.</div>';
+            const rateBadge = result.invoice.exchangeRate
+              ? '<span class="badge ok">NBP ' + escapeHtml(result.invoice.exchangeRate.tableNo) + " / " + escapeHtml(String(result.invoice.exchangeRate.mid.toFixed(4))) + '</span>'
+              : (result.invoice.currency || "").toUpperCase() === "PLN"
+                ? '<span class="badge">PLN</span>'
+                : '<span class="badge error">brak kursu NBP</span>';
+            card.innerHTML =
+              '<div class="result-body">' +
+                '<div class="result-head">' +
+                  '<div>' +
+                    '<h3>' + escapeHtml(result.invoice.invoiceNumber || result.source.name) + '</h3>' +
+                    '<div class="subtle">' + escapeHtml(result.source.name) + '</div>' +
+                  '</div>' +
+                  '<span class="badge ' + (result.invoice.errors.length ? "error" : "ok") + '">' + (result.invoice.errors.length ? result.invoice.errors.length + " " + pluralize(result.invoice.errors.length, "błąd", "błędy", "błędów") : "gotowe") + '</span>' +
+                '</div>' +
+                '<div class="meta">' +
+                  '<span class="badge">' + escapeHtml(result.invoice.documentVariant || "nieznany wariant") + '</span>' +
+                  '<span class="badge">' + escapeHtml(result.invoice.issueDate || "brak daty") + '</span>' +
+                  '<span class="badge">' + result.invoice.items.length + " " + pluralize(result.invoice.items.length, "pozycja", "pozycje", "pozycji") + '</span>' +
+                  rateBadge +
+                '</div>' +
+                '<div>' +
+                  '<strong style="display:block; margin-bottom: 6px;">Błędy krytyczne</strong>' +
+                  errorHtml +
+                '</div>' +
+                '<div>' +
+                  '<strong style="display:block; margin-bottom: 6px;">Ostrzeżenia</strong>' +
+                  warningHtml +
+                '</div>' +
+                '<div class="actions" style="margin-top: 0;">' +
+                  '<button class="secondary" data-download-index="' + index + '"' + (result.invoice.errors.length ? " disabled" : "") + '>Pobierz XML</button>' +
+                '</div>' +
+                (result.xml
+                  ? '<pre>' + escapeHtml(result.xml) + '</pre>'
+                  : '<div class="empty">XML nie został wygenerowany, bo parser wykrył błąd krytyczny.</div>') +
+              '</div>';
+            resultsEl.appendChild(card);
+          });
+        }
+        resultCount.textContent = readyCount + " gotowych XML";
+        downloadBtn.disabled = !readyCount || hasErrors;
+        setStatus(
+          !state.results.length
+            ? "Oczekiwanie na pliki"
+            : hasErrors
+              ? "Wykryto błędy krytyczne. Pobieranie zostało zablokowane."
+              : "Wygenerowano " + readyCount + " " + pluralize(readyCount, "plik XML", "pliki XML", "plików XML"),
+          !state.results.length ? "" : (hasErrors ? "error" : "ok")
+        );
+      }
+
+      async function loadFiles(fileListLike) {
+        const incoming = Array.from(fileListLike || []).filter((file) => /\.html?$/i.test(file.name));
+        if (!incoming.length) {
+          setStatus("Nie wybrano żadnych plików HTML", "error");
+          return;
+        }
+        state.files = incoming;
+        state.results = [];
+        refreshFileCards();
+        refreshResults();
+        setStatus("Pliki wczytane. Trwa generowanie XML...", "");
+        await generateResults(true);
+      }
+
+      async function generateResults(autoDownload) {
+        if (!state.files.length) {
+          return;
+        }
+        setStatus("Parsowanie HTML, kontrola sum i pobieranie kursów NBP...", "");
+        const results = [];
+        for (const file of state.files) {
+          const html = await file.text();
+          const invoice = await FakturaTool.enrichInvoice(FakturaTool.parseInvoiceHtml(html, file.name));
+          const xml = invoice.errors.length ? "" : FakturaTool.buildInvoiceXml(invoice);
+          results.push({ source: file, invoice, xml });
+        }
+        state.results = results;
+        refreshResults();
+        if (autoDownload && results.length && !results.some((result) => result.invoice.errors.length)) {
+          downloadAll();
+          setStatus(
+            results.length === 1
+              ? "Wygenerowano XML i rozpoczęto pobieranie pliku."
+              : "Wygenerowano XML i rozpoczęto pobieranie ZIP.",
+            "ok"
+          );
+        }
+      }
+
+      function triggerDownload(blob, fileName) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 500);
+      }
+
+      function downloadAll() {
+        if (!state.results.length) {
+          return;
+        }
+        if (state.results.some((result) => result.invoice.errors.length)) {
+          setStatus("Nie można pobrać ZIP, dopóki choć jedna faktura ma błąd krytyczny.", "error");
+          return;
+        }
+        if (state.results.length === 1) {
+          const single = state.results[0];
+          triggerDownload(new Blob([single.xml], { type: "application/xml;charset=utf-8" }), FakturaTool.createDownloadName(state.results));
+          return;
+        }
+        const zipFiles = state.results.map((result) => ({
+          name: FakturaTool.sanitizeBaseName(result.source.name) + ".xml",
+          content: result.xml
+        }));
+        const zipBytes = FakturaTool.createZipBytes(zipFiles);
+        triggerDownload(new Blob([zipBytes], { type: "application/zip" }), FakturaTool.createDownloadName(state.results));
+      }
+
+      function downloadOne(index) {
+        const result = state.results[index];
+        if (!result || result.invoice.errors.length || !result.xml) {
+          return;
+        }
+        triggerDownload(
+          new Blob([result.xml], { type: "application/xml;charset=utf-8" }),
+          FakturaTool.sanitizeBaseName(result.source.name) + ".xml"
+        );
+      }
+
+      function clearAll() {
+        state.files = [];
+        state.results = [];
+        fileInput.value = "";
+        refreshFileCards();
+        refreshResults();
+        setStatus("Oczekiwanie na pliki", "");
+      }
+
+      function onDrop(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        setDropActive(false);
+        dragDepth = 0;
+        loadFiles(event.dataTransfer.files);
+      }
+
+      function setDropActive(active) {
+        dropzone.classList.toggle("active", active);
+      }
+
+      function pluralize(count, one, few, many) {
+        const mod10 = count % 10;
+        const mod100 = count % 100;
+        if (count === 1) {
+          return one;
+        }
+        if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
+          return few;
+        }
+        return many;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function formatSize(size) {
+        if (size < 1024) {
+          return size + " B";
+        }
+        if (size < 1024 * 1024) {
+          return (size / 1024).toFixed(1) + " KB";
+        }
+        return (size / (1024 * 1024)).toFixed(2) + " MB";
+      }
+
+      dropzone.addEventListener("click", () => fileInput.click());
+      dropzone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        setDropActive(true);
+      });
+      dropzone.addEventListener("dragleave", () => {
+        if (dragDepth === 0) {
+          setDropActive(false);
+        }
+      });
+      dropzone.addEventListener("drop", onDrop);
+      document.addEventListener("dragenter", (event) => {
+        event.preventDefault();
+        dragDepth += 1;
+        setDropActive(true);
+      });
+      document.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        setDropActive(true);
+      });
+      document.addEventListener("dragleave", (event) => {
+        event.preventDefault();
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) {
+          setDropActive(false);
+        }
+      });
+      document.addEventListener("drop", onDrop);
+      fileInput.addEventListener("change", () => loadFiles(fileInput.files));
+      generateBtn.addEventListener("click", () => generateResults(false));
+      downloadBtn.addEventListener("click", downloadAll);
+      clearBtn.addEventListener("click", clearAll);
+      resultsEl.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-download-index]");
+        if (!button) {
+          return;
+        }
+        downloadOne(Number(button.dataset.downloadIndex));
+      });
+
+      refreshFileCards();
+      refreshResults();
+    })();
+  </script>
+</body>
+</html>
