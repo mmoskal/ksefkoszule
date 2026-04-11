@@ -570,7 +570,8 @@
         }
         const patterns = [
           /^(?<number>\d{1,3})\/(?<table>[A-Z])\/NBP z dnia (?<date>\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2})$/,
-          /^(?<number>\d{1,3})\/(?<table>[A-Z])\/NBP\/(?<year>\d{4}) z dnia (?<date>\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2})$/
+          /^(?<number>\d{1,3})\/(?<table>[A-Z])\/NBP\/(?<year>\d{4}) z dnia (?<date>\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2})$/,
+          /^(?<number>\d{1,3})\/(?<table>[A-Z])\/NBP\/(?<year>\d{4})\s*\(z dnia (?<date>\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2})\)$/
         ];
         for (const pattern of patterns) {
           const match = pattern.exec(raw);
