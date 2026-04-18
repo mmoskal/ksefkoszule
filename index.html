@@ -336,6 +336,11 @@
         "VAT EUR",
         "Brutto EUR"
       ];
+      const HTML_NP_SUBSTRINGS = [
+        "reperacja",
+        "dostarczonych przez zleceniodawc",
+        "refaktura"
+      ];
 
       function decodeHtmlEntities(value) {
         return value
@@ -544,6 +549,47 @@
           }
         }
         return items;
+      }
+
+      function shouldRewriteVatToNp(description) {
+        const text = String(description || "").toLowerCase();
+        return HTML_NP_SUBSTRINGS.some((substring) => text.includes(substring));
+      }
+
+      function replaceNthTableCell(rowHtml, zeroBasedCellIndex, newText) {
+        let currentIndex = 0;
+        return rowHtml.replace(/(<td\b[^>]*>)([\s\S]*?)(<\/td>)/gi, (match, open, inner, close) => {
+          const replacement = currentIndex === zeroBasedCellIndex ? open + newText + close : match;
+          currentIndex += 1;
+          return replacement;
+        });
+      }
+
+      function rewriteInvoiceHtml(html) {
+        let updatedHtml = String(html || "").replace(/^\uFEFF/, "");
+        updatedHtml = updatedHtml.replace(/(<td class=pk><b>)PKWiU(<\/b><\/td>)/i, "$1CN/PKWiU$2");
+        updatedHtml = updatedHtml.replace(/(<table class=['"]lista['"]>)([\s\S]*?)(<\/table>)/i, (match, openTag, innerHtml, closeTag) => {
+          const rewrittenRows = innerHtml.replace(/<tr>([\s\S]*?)<\/tr>/gi, (rowHtml) => {
+            const cells = extractAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi, rowHtml)
+              .map((cell) => normalizeWhitespace(stripTags(cell[1].replace(/<br\s*\/?>/gi, "\n"))));
+            if (cells.length < 10 || !/^\d+$/.test(cells[0])) {
+              return rowHtml;
+            }
+            const vatRate = parseNumber(cells[7]);
+            const vatAmount = parseNumber(cells[8]);
+            if (!shouldRewriteVatToNp(cells[1]) || vatRate !== 0 || vatAmount !== 0) {
+              return rowHtml;
+            }
+            let rewrittenRow = replaceNthTableCell(rowHtml, 7, "NP");
+            rewrittenRow = replaceNthTableCell(rewrittenRow, 8, "NP");
+            return rewrittenRow;
+          });
+          return openTag + rewrittenRows + closeTag;
+        });
+        if (!/>\s*Odwrotne obciążenie\s*</i.test(updatedHtml)) {
+          updatedHtml = updatedHtml.replace(/(<\/table>\s*)(<p>\s*Sposób zapłaty:)/i, "$1<p>Odwrotne obciążenie</p>\n$2");
+        }
+        return updatedHtml;
       }
 
       function parseRemarks(html, warnings, errors) {
@@ -888,6 +934,9 @@
           return String(item.vatRate);
         }
         if (item.vatRate === 0) {
+          if (shouldRewriteVatToNp(item.description)) {
+            return "np II";
+          }
           return "0 WDT";
         }
         return reverseCharge ? "np I" : "0 KR";
@@ -1104,11 +1153,32 @@
           .replace(/^_+|_+$/g, "") || "invoice";
       }
 
-      function createInvoiceFileName(result) {
+      function createInvoiceBaseName(result) {
         const invoiceNumber = result && result.invoice ? String(result.invoice.invoiceNumber || "") : "";
         const compactInvoiceNumber = invoiceNumber.replace(/[^A-Za-z0-9]+/g, "");
-        const baseName = compactInvoiceNumber || sanitizeBaseName(result && result.source ? result.source.name : "invoice");
-        return baseName + ".xml";
+        return compactInvoiceNumber || sanitizeBaseName(result && result.source ? result.source.name : "invoice");
+      }
+
+      function createInvoiceXmlFileName(result) {
+        return createInvoiceBaseName(result) + ".xml";
+      }
+
+      function createInvoiceHtmlFileName(result) {
+        return createInvoiceBaseName(result) + ".html";
+      }
+
+      function formatTimestampForFile(date) {
+        const safe = date instanceof Date ? date : new Date();
+        const pad = (value) => String(value).padStart(2, "0");
+        return [
+          safe.getFullYear(),
+          pad(safe.getMonth() + 1),
+          pad(safe.getDate())
+        ].join("-") + "-" + [
+          pad(safe.getHours()),
+          pad(safe.getMinutes()),
+          pad(safe.getSeconds())
+        ].join("");
       }
 
       function crc32(bytes) {
@@ -1215,9 +1285,9 @@
 
       function createDownloadName(results) {
         if (results.length === 1) {
-          return createInvoiceFileName(results[0]);
+          return createInvoiceBaseName(results[0]) + ".zip";
         }
-        return "faktura-xml-" + new Date().toISOString().slice(0, 10) + ".zip";
+        return "faktura-xml-" + formatTimestampForFile(new Date()) + ".zip";
       }
 
       const CRC_TABLE = (() => {
@@ -1234,10 +1304,13 @@
 
       return {
         parseInvoiceHtml,
+        rewriteInvoiceHtml,
         enrichInvoice,
         buildInvoiceXml,
         sanitizeBaseName,
-        createInvoiceFileName,
+        createInvoiceBaseName,
+        createInvoiceXmlFileName,
+        createInvoiceHtmlFileName,
         createZipBytes,
         createDownloadName
       };
@@ -1330,7 +1403,7 @@
                   warningHtml +
                 '</div>' +
                 '<div class="actions" style="margin-top: 0;">' +
-                  '<button class="secondary" data-download-index="' + index + '"' + (result.invoice.errors.length ? " disabled" : "") + '>Pobierz XML</button>' +
+                  '<button class="secondary" data-download-index="' + index + '"' + (result.invoice.errors.length ? " disabled" : "") + '>Pobierz ZIP</button>' +
                 '</div>' +
                 (result.xml
                   ? '<pre>' + escapeHtml(result.xml) + '</pre>'
@@ -1372,19 +1445,18 @@
         setStatus("Parsowanie HTML, kontrola sum i pobieranie kursów NBP...", "");
         const results = [];
         for (const file of state.files) {
-          const html = await file.text();
-          const invoice = await FakturaTool.enrichInvoice(FakturaTool.parseInvoiceHtml(html, file.name));
+          const originalHtml = await file.text();
+          const invoice = await FakturaTool.enrichInvoice(FakturaTool.parseInvoiceHtml(originalHtml, file.name));
           const xml = invoice.errors.length ? "" : FakturaTool.buildInvoiceXml(invoice);
-          results.push({ source: file, invoice, xml });
+          const rewrittenHtml = FakturaTool.rewriteInvoiceHtml(originalHtml);
+          results.push({ source: file, invoice, xml, rewrittenHtml });
         }
         state.results = results;
         refreshResults();
         if (autoDownload && results.length && !results.some((result) => result.invoice.errors.length)) {
           downloadAll();
           setStatus(
-            results.length === 1
-              ? "Wygenerowano XML i rozpoczęto pobieranie pliku."
-              : "Wygenerowano XML i rozpoczęto pobieranie ZIP.",
+            "Wygenerowano pliki i rozpoczęto pobieranie ZIP.",
             "ok"
           );
         }
@@ -1409,15 +1481,17 @@
           setStatus("Nie można pobrać ZIP, dopóki choć jedna faktura ma błąd krytyczny.", "error");
           return;
         }
-        if (state.results.length === 1) {
-          const single = state.results[0];
-          triggerDownload(new Blob([single.xml], { type: "application/xml;charset=utf-8" }), FakturaTool.createDownloadName(state.results));
-          return;
-        }
-        const zipFiles = state.results.map((result) => ({
-          name: FakturaTool.createInvoiceFileName(result),
-          content: result.xml
-        }));
+        const zipFiles = [];
+        state.results.forEach((result) => {
+          zipFiles.push({
+            name: FakturaTool.createInvoiceXmlFileName(result),
+            content: result.xml
+          });
+          zipFiles.push({
+            name: FakturaTool.createInvoiceHtmlFileName(result),
+            content: result.rewrittenHtml || ""
+          });
+        });
         const zipBytes = FakturaTool.createZipBytes(zipFiles);
         triggerDownload(new Blob([zipBytes], { type: "application/zip" }), FakturaTool.createDownloadName(state.results));
       }
@@ -1427,10 +1501,17 @@
         if (!result || result.invoice.errors.length || !result.xml) {
           return;
         }
-        triggerDownload(
-          new Blob([result.xml], { type: "application/xml;charset=utf-8" }),
-          FakturaTool.createInvoiceFileName(result)
-        );
+        const zipBytes = FakturaTool.createZipBytes([
+          {
+            name: FakturaTool.createInvoiceXmlFileName(result),
+            content: result.xml
+          },
+          {
+            name: FakturaTool.createInvoiceHtmlFileName(result),
+            content: result.rewrittenHtml || ""
+          }
+        ]);
+        triggerDownload(new Blob([zipBytes], { type: "application/zip" }), FakturaTool.createDownloadName([result]));
       }
 
       function clearAll() {
