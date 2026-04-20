@@ -329,7 +329,7 @@
     - P_12 values are schema enums. There is no plain "NP"; use schema values such as "np I" or "np II".
     - This converter currently maps service-like rows matching:
       "reperacja", "dostarczonych przez zleceniodawc", "refaktura"
-      to visible HTML "NP" and FA(3) P_12="np II"; other 0% rows stay P_12="0 WDT".
+      to visible HTML "np II" and FA(3) P_12="np II"; other 0% rows stay P_12="0 WDT".
     - Official references used:
       https://github.com/CIRFMF/ksef-docs
       https://github.com/CIRFMF/ksef-docs/blob/main/faktury/weryfikacja-faktury.md
@@ -600,8 +600,8 @@
             if (!shouldRewriteVatToNp(cells[1]) || vatRate !== 0 || vatAmount !== 0) {
               return rowHtml;
             }
-            let rewrittenRow = replaceNthTableCell(rowHtml, 7, "NP");
-            rewrittenRow = replaceNthTableCell(rewrittenRow, 8, "NP");
+            let rewrittenRow = replaceNthTableCell(rowHtml, 7, "np II");
+            rewrittenRow = replaceNthTableCell(rewrittenRow, 8, "np II");
             return rewrittenRow;
           });
           return openTag + rewrittenRows + closeTag;
