@@ -320,6 +320,26 @@
     </section>
   </main>
 
+  <!--
+    Notes for future Codex/maintainer edits:
+    - Validate FA(3) XML with xmllint against the official XSD:
+      curl -L -o schemat_FA3.xsd 'https://raw.githubusercontent.com/CIRFMF/ksef-docs/main/faktury/schemy/FA/schemat_FA(3)_v1-0E.xsd'
+      xmllint --noout --schema schemat_FA3.xsd faktura.xml
+    - XSD validation is necessary but not sufficient; KSeF can still reject invoices on business rules.
+    - P_12 values are schema enums. There is no plain "NP"; use schema values such as "np I" or "np II".
+    - This converter currently maps service-like rows matching:
+      "reperacja", "dostarczonych przez zleceniodawc", "refaktura"
+      to visible HTML "NP" and FA(3) P_12="np II"; other 0% rows stay P_12="0 WDT".
+    - Official references used:
+      https://github.com/CIRFMF/ksef-docs
+      https://github.com/CIRFMF/ksef-docs/blob/main/faktury/weryfikacja-faktury.md
+      https://raw.githubusercontent.com/CIRFMF/ksef-docs/main/faktury/schemy/FA/schemat_FA(3)_v1-0E.xsd
+      https://github.com/CIRFMF/ksef-docs/blob/main/sesja-interaktywna.md
+      https://github.com/CIRFMF/ksef-docs/blob/main/uwierzytelnianie.md
+      https://api.nbp.pl/
+      https://github.com/CIRFMF/ksef-pdf-generator
+      https://ksef.podatki.gov.pl/informacje-ogolne-ksef-20/certyfikaty-ksef/
+  -->
   <script>
     const FakturaTool = (() => {
       const encoder = new TextEncoder();
