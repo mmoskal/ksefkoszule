@@ -587,6 +587,7 @@
 
       function rewriteInvoiceHtml(html) {
         let updatedHtml = String(html || "").replace(/^\uFEFF/, "");
+        updatedHtml = updatedHtml.replace(/^[ \t]*<h2>\s*Oryginał\s*<\/h2>[ \t]*\r?\n?/gim, "");
         updatedHtml = updatedHtml.replace(/(<td class=pk><b>)PKWiU(<\/b><\/td>)/i, "$1CN/PKWiU$2");
         updatedHtml = updatedHtml.replace(/(<table class=['"]lista['"]>)([\s\S]*?)(<\/table>)/i, (match, openTag, innerHtml, closeTag) => {
           const rewrittenRows = innerHtml.replace(/<tr>([\s\S]*?)<\/tr>/gi, (rowHtml) => {
